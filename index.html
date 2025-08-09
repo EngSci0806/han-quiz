@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>韓国語活用クイズ</title>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            margin: 50px;
+        }
+        input {
+            font-size: 1.2em;
+            padding: 8px;
+            margin: 10px;
+        }
+        #result {
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🇰🇷 韓国語 活用クイズ</h1>
+    <p id="question"></p>
+    <input type="text" id="answer" placeholder="答えを入力">
+    <p id="result"></p>
+    <p id="score"></p>
+
+    <script>
+        let quizData = [];
+        let remainingQuestions = [];
+        let currentQuiz = {};
+        let score = 0;
+        let total = 0;
+        let answered = false;
+
+        function pickQuestion() {
+            document.getElementById("result").textContent = "";
+            document.getElementById("answer").value = "";
+            answered = false;
+
+            if (remainingQuestions.length === 0) {
+                remainingQuestions = [...quizData];
+            }
+
+            const randomIndex = Math.floor(Math.random() * remainingQuestions.length);
+            currentQuiz = remainingQuestions.splice(randomIndex, 1)[0];
+            document.getElementById("question").textContent = `「${currentQuiz.原形}」の${currentQuiz.形}は？`;
+        }
+
+        function checkAnswer() {
+            const userAnswer = document.getElementById("answer").value.trim();
+            total++;
+            if (userAnswer === currentQuiz.活用形) {
+                score++;
+                document.getElementById("result").textContent = "✅ 正解！";
+            } else {
+                document.getElementById("result").textContent = `❌ 不正解。正解は「${currentQuiz.活用形}」です。`;
+            }
+            document.getElementById("score").textContent = `スコア: ${score} / ${total}`;
+            answered = true;
+        }
+
+        document.getElementById("answer").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                if (!answered) {
+                    checkAnswer();
+                } else {
+                    pickQuestion();
+                }
+            }
+        });
+
+        function loadCSV() {
+            Papa.parse("questions.csv", {
+                download: true,
+                header: true,
+                complete: function(results) {
+                    quizData = results.data.filter(row => row.原形 && row.形 && row.活用形);
+                    remainingQuestions = [...quizData];
+                    pickQuestion();
+                },
+                error: function(error) {
+                    document.getElementById("question").textContent = "CSVの読み込みに失敗しました。";
+                    console.error("CSV読み込みエラー:", error);
+                }
+            });
+        }
+
+        loadCSV();
+    </script>
+</body>
+</html>
