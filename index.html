@@ -5,20 +5,9 @@
     <title>韓国語活用クイズ</title>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
-        body {
-            font-family: sans-serif;
-            text-align: center;
-            margin: 50px;
-        }
-        input {
-            font-size: 1.2em;
-            padding: 8px;
-            margin: 10px;
-        }
-        #result {
-            font-size: 1.2em;
-            margin-top: 20px;
-        }
+        body { font-family: sans-serif; text-align: center; margin: 50px; }
+        input { font-size: 1.2em; padding: 8px; margin: 10px; }
+        #result { font-size: 1.2em; margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -36,28 +25,53 @@
         let total = 0;
         let answered = false;
 
+        // CSVの活用形列（出題候補）
+        const formKeys = [
+            "現在形(해요体)", "過去形", "未来形", "尊敬形", "命令形", "否定形",
+            "連体形-現在", "連体形-過去", "連体形-未来"
+        ];
+
+        function generateAllQuestions(data) {
+            let questions = [];
+            data.forEach(row => {
+                formKeys.forEach(key => {
+                    if (row[key] && row[key] !== "-") {
+                        questions.push({
+                            原形: row["基本形"],
+                            形名: key,
+                            答え: row[key]
+                        });
+                    }
+                });
+            });
+            return questions;
+        }
+
         function pickQuestion() {
             document.getElementById("result").textContent = "";
             document.getElementById("answer").value = "";
             answered = false;
 
             if (remainingQuestions.length === 0) {
-                remainingQuestions = [...quizData];
+                document.getElementById("question").textContent = "全問出題しました！";
+                return;
             }
 
             const randomIndex = Math.floor(Math.random() * remainingQuestions.length);
             currentQuiz = remainingQuestions.splice(randomIndex, 1)[0];
-            document.getElementById("question").textContent = `「${currentQuiz.原形}」の${currentQuiz.形}は？`;
+            document.getElementById("question").textContent =
+                `「${currentQuiz.原形}」の${currentQuiz.形名}は？`;
         }
 
         function checkAnswer() {
             const userAnswer = document.getElementById("answer").value.trim();
             total++;
-            if (userAnswer === currentQuiz.活用形) {
+            if (userAnswer === currentQuiz.答え) {
                 score++;
                 document.getElementById("result").textContent = "✅ 正解！";
             } else {
-                document.getElementById("result").textContent = `❌ 不正解。正解は「${currentQuiz.活用形}」です。`;
+                document.getElementById("result").textContent =
+                    `❌ 不正解。正解は「${currentQuiz.答え}」です。`;
             }
             document.getElementById("score").textContent = `スコア: ${score} / ${total}`;
             answered = true;
@@ -78,8 +92,8 @@
                 download: true,
                 header: true,
                 complete: function(results) {
-                    quizData = results.data.filter(row => row.原形 && row.形 && row.活用形);
-                    remainingQuestions = [...quizData];
+                    quizData = results.data.filter(row => row["基本形"]);
+                    remainingQuestions = generateAllQuestions(quizData);
                     pickQuestion();
                 },
                 error: function(error) {
