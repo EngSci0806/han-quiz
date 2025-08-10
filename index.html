@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>韓国語活用クイズ</title>
+    <title>韓国語活用クイズ（復習モード付き）</title>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
         body {
@@ -10,7 +10,7 @@
             text-align: center;
             margin: 50px;
         }
-        input {
+        input, button {
             font-size: 1.2em;
             padding: 8px;
             margin: 10px;
@@ -27,67 +27,58 @@
     <input type="text" id="answer" placeholder="答えを入力">
     <p id="result"></p>
     <p id="score"></p>
+    <button id="toggleMode">復習モードに切り替え</button>
 
     <script>
         let quizData = [];
         let remainingQuestions = [];
+        let wrongQuestions = [];
         let currentQuiz = {};
         let score = 0;
         let total = 0;
         let answered = false;
-
-        // CSVの各列から問題を生成
-        function generateAllQuestions(data) {
-            const questionTypes = [
-                { key: "現在形(해요体)", label: "現在形(해요体)" },
-                { key: "過去形", label: "過去形" },
-                { key: "未来形", label: "未来形" },
-                { key: "尊敬形", label: "尊敬形" },
-                { key: "命令形", label: "命令形" },
-                { key: "否定形", label: "否定形" },
-                { key: "連体形-現在", label: "連体形-現在" },
-                { key: "連体形-過去", label: "連体形-過去" },
-                { key: "連体形-未来", label: "連体形-未来" }
-            ];
-
-            let questions = [];
-            data.forEach(row => {
-                questionTypes.forEach(type => {
-                    if (row[type.key] && row[type.key] !== "-" && row[type.key].trim() !== "") {
-                        questions.push({
-                            原形: row["基本形"],
-                            形: type.label,
-                            活用形: row[type.key]
-                        });
-                    }
-                });
-            });
-            return questions;
-        }
+        let reviewMode = false;
 
         function pickQuestion() {
             document.getElementById("result").textContent = "";
             document.getElementById("answer").value = "";
             answered = false;
 
-            if (remainingQuestions.length === 0) {
-                alert("全問出題しました！最初から始めます。");
-                remainingQuestions = [...quizData];
+            let source = reviewMode ? wrongQuestions : remainingQuestions;
+
+            if (source.length === 0) {
+                if (reviewMode) {
+                    alert("間違えた問題は全部正解しました！通常モードに戻ります。");
+                    reviewMode = false;
+                    document.getElementById("toggleMode").textContent = "復習モードに切り替え";
+                    source = remainingQuestions;
+                } else {
+                    remainingQuestions = [...quizData];
+                    source = remainingQuestions;
+                }
             }
 
-            const randomIndex = Math.floor(Math.random() * remainingQuestions.length);
-            currentQuiz = remainingQuestions.splice(randomIndex, 1)[0];
-            document.getElementById("question").textContent = `「${currentQuiz.原形}」の${currentQuiz.形}は？`;
+            const randomIndex = Math.floor(Math.random() * source.length);
+            currentQuiz = source.splice(randomIndex, 1)[0];
+            document.getElementById("question").textContent = `「${currentQuiz.基本形}」の${currentQuiz.出題形}は？`;
         }
 
         function checkAnswer() {
             const userAnswer = document.getElementById("answer").value.trim();
             total++;
-            if (userAnswer === currentQuiz.活用形) {
+            if (userAnswer === currentQuiz.答え) {
                 score++;
+                if (reviewMode) {
+                    wrongQuestions = wrongQuestions.filter(q =>
+                        !(q.基本形 === currentQuiz.基本形 && q.出題形 === currentQuiz.出題形)
+                    );
+                }
                 document.getElementById("result").textContent = "✅ 正解！";
             } else {
-                document.getElementById("result").textContent = `❌ 不正解。正解は「${currentQuiz.活用形}」です。`;
+                document.getElementById("result").textContent = `❌ 不正解。正解は「${currentQuiz.答え}」です。`;
+                if (!wrongQuestions.some(q => q.基本形 === currentQuiz.基本形 && q.出題形 === currentQuiz.出題形)) {
+                    wrongQuestions.push(currentQuiz);
+                }
             }
             document.getElementById("score").textContent = `スコア: ${score} / ${total}`;
             answered = true;
@@ -103,15 +94,29 @@
             }
         });
 
+        document.getElementById("toggleMode").addEventListener("click", function() {
+            reviewMode = !reviewMode;
+            this.textContent = reviewMode ? "通常モードに切り替え" : "復習モードに切り替え";
+            pickQuestion();
+        });
+
         function loadCSV() {
             Papa.parse("questions.csv", {
                 download: true,
                 header: true,
-                encoding: "UTF-8",
-                skipEmptyLines: true,
                 complete: function(results) {
-                    console.log("読み込み結果:", results.data); // デバッグ用
-                    quizData = generateAllQuestions(results.data);
+                    // CSVを「基本形」「出題形」「答え」の形に整形
+                    results.data.forEach(row => {
+                        Object.keys(row).forEach(key => {
+                            if (key !== "種類" && key !== "基本形" && key !== "語幹" && key !== "パッチム有無") {
+                                quizData.push({
+                                    基本形: row["基本形"],
+                                    出題形: key,
+                                    答え: row[key]
+                                });
+                            }
+                        });
+                    });
                     remainingQuestions = [...quizData];
                     pickQuestion();
                 },
